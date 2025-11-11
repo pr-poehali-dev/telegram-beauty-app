@@ -1,13 +1,50 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { initTelegram, getTelegramUser, hapticFeedback } from '@/lib/telegram';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import Icon from '@/components/ui/icon';
+import BookingCalendar from '@/components/BookingCalendar';
 
 const Index = () => {
   const [role, setRole] = useState<'client' | 'master'>('client');
+  const [telegramUser, setTelegramUser] = useState<any>(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [selectedMaster, setSelectedMaster] = useState<{name: string, service: string, price: number} | null>(null);
+
+  useEffect(() => {
+    const tg = initTelegram();
+    const user = getTelegramUser();
+    if (user) {
+      setTelegramUser(user);
+    }
+  }, []);
+
+  const handleRoleChange = (newRole: 'client' | 'master') => {
+    hapticFeedback('light');
+    setRole(newRole);
+  };
+
+  const handleBooking = (masterName: string, serviceName: string, price: number) => {
+    hapticFeedback('medium');
+    setSelectedMaster({ name: masterName, service: serviceName, price });
+    setShowBookingModal(true);
+  };
+
+  const handleBookingConfirm = (date: Date, time: string) => {
+    hapticFeedback('success');
+    console.log('Booking confirmed:', { date, time, master: selectedMaster });
+    setShowBookingModal(false);
+    setSelectedMaster(null);
+  };
+
+  const handleBookingCancel = () => {
+    hapticFeedback('light');
+    setShowBookingModal(false);
+    setSelectedMaster(null);
+  };
 
   const mockAppointments = [
     {
@@ -126,7 +163,7 @@ const Index = () => {
           </p>
         </header>
 
-        <Tabs value={role} onValueChange={(v) => setRole(v as 'client' | 'master')} className="space-y-6">
+        <Tabs value={role} onValueChange={(v) => handleRoleChange(v as 'client' | 'master')} className="space-y-6">
           <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 h-12">
             <TabsTrigger value="client" className="text-base">
               <Icon name="User" size={18} className="mr-2" />
@@ -209,8 +246,12 @@ const Index = () => {
                           <h4 className="font-semibold">{master.masterName}</h4>
                           <p className="text-xs text-muted-foreground">Маникюр, педикюр</p>
                         </div>
-                        <Button size="sm" variant="ghost">
-                          <Icon name="ChevronRight" size={18} />
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => handleBooking(master.masterName, master.service, master.price)}
+                        >
+                          <Icon name="Calendar" size={18} />
                         </Button>
                       </CardContent>
                     </Card>
@@ -331,6 +372,16 @@ const Index = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {showBookingModal && selectedMaster && (
+        <BookingCalendar
+          masterName={selectedMaster.name}
+          serviceName={selectedMaster.service}
+          servicePrice={selectedMaster.price}
+          onConfirm={handleBookingConfirm}
+          onCancel={handleBookingCancel}
+        />
+      )}
     </div>
   );
 };
