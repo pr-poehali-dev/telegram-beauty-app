@@ -7,12 +7,18 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import Icon from '@/components/ui/icon';
 import BookingCalendar from '@/components/BookingCalendar';
+import NotificationBell from '@/components/NotificationBell';
+import ProfileModal from '@/components/ProfileModal';
+import { bookingsApi, Booking } from '@/lib/api';
 
 const Index = () => {
   const [role, setRole] = useState<'client' | 'master'>('client');
   const [telegramUser, setTelegramUser] = useState<any>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [selectedMaster, setSelectedMaster] = useState<{name: string, service: string, price: number} | null>(null);
+  const [selectedMaster, setSelectedMaster] = useState<{id: number, name: string, service: string, serviceId: number, price: number} | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(true);
 
   useEffect(() => {
     const tg = initTelegram();
@@ -20,24 +26,51 @@ const Index = () => {
     if (user) {
       setTelegramUser(user);
     }
+    loadBookings();
   }, []);
+
+  const loadBookings = async () => {
+    try {
+      setIsLoadingBookings(true);
+      const data = await bookingsApi.getBookings();
+      setBookings(data);
+    } catch (error) {
+      console.error('Failed to load bookings:', error);
+    } finally {
+      setIsLoadingBookings(false);
+    }
+  };
 
   const handleRoleChange = (newRole: 'client' | 'master') => {
     hapticFeedback('light');
     setRole(newRole);
   };
 
-  const handleBooking = (masterName: string, serviceName: string, price: number) => {
+  const handleBooking = (masterId: number, masterName: string, serviceId: number, serviceName: string, price: number) => {
     hapticFeedback('medium');
-    setSelectedMaster({ name: masterName, service: serviceName, price });
+    setSelectedMaster({ id: masterId, name: masterName, serviceId, service: serviceName, price });
     setShowBookingModal(true);
   };
 
-  const handleBookingConfirm = (date: Date, time: string) => {
-    hapticFeedback('success');
-    console.log('Booking confirmed:', { date, time, master: selectedMaster });
-    setShowBookingModal(false);
-    setSelectedMaster(null);
+  const handleBookingConfirm = async (date: Date, time: string) => {
+    if (!selectedMaster) return;
+    
+    try {
+      await bookingsApi.createBooking({
+        masterId: selectedMaster.id,
+        serviceId: selectedMaster.serviceId,
+        date: date.toISOString().split('T')[0],
+        time,
+        duration: 60,
+      });
+      hapticFeedback('success');
+      setShowBookingModal(false);
+      setSelectedMaster(null);
+      loadBookings();
+    } catch (error) {
+      console.error('Failed to create booking:', error);
+      hapticFeedback('error');
+    }
   };
 
   const handleBookingCancel = () => {
@@ -151,16 +184,26 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-accent/30 via-background to-secondary/20 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        <header className="mb-8 text-center animate-fade-in">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <Icon name="Sparkles" size={32} className="text-primary" />
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
-              BeautyFlow
-            </h1>
+        <header className="mb-8 animate-fade-in">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <Icon name="Sparkles" size={32} className="text-primary" />
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
+                  BeautyFlow
+                </h1>
+                <p className="text-muted-foreground text-xs md:text-sm">
+                  Твоя бьюти-экосистема
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <Button variant="ghost" size="icon" onClick={() => setShowProfileModal(true)}>
+                <Icon name="User" size={20} />
+              </Button>
+            </div>
           </div>
-          <p className="text-muted-foreground text-sm md:text-base">
-            Твоя бьюти-экосистема в Telegram
-          </p>
         </header>
 
         <Tabs value={role} onValueChange={(v) => handleRoleChange(v as 'client' | 'master')} className="space-y-6">
@@ -185,20 +228,32 @@ const Index = () => {
                 <CardDescription>Предстоящие визиты к мастерам</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {mockAppointments.map((appointment) => (
+                {isLoadingBookings ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Загрузка записей...</p>
+                  </div>
+                ) : bookings.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Icon name="Calendar" size={48} className="mx-auto mb-2 opacity-50" />
+                    <p className="text-muted-foreground">Пока нет записей</p>
+                    <p className="text-sm text-muted-foreground mt-1">Выберите мастера ниже, чтобы записаться</p>
+                  </div>
+                ) : (
+                  bookings.map((appointment) => (
                   <Card key={appointment.id} className="overflow-hidden border-2 hover:shadow-lg transition-all animate-scale-in">
                     <CardContent className="p-4">
                       <div className="flex items-start gap-4">
                         <Avatar className="h-14 w-14">
                           <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-                            {appointment.avatar}
+                            {appointment.masterName.split(' ').map(n => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 space-y-2">
                           <div className="flex items-start justify-between">
                             <div>
                               <h3 className="font-semibold text-lg">{appointment.masterName}</h3>
-                              <p className="text-sm text-muted-foreground">{appointment.service}</p>
+                              <p className="text-sm text-muted-foreground">{appointment.serviceName}</p>
                             </div>
                             {getStatusBadge(appointment.status)}
                           </div>
@@ -220,7 +275,8 @@ const Index = () => {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
 
@@ -234,28 +290,46 @@ const Index = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid md:grid-cols-2 gap-4">
-                  {mockAppointments.map((master, idx) => (
-                    <Card key={idx} className="hover:shadow-md transition-all">
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <Avatar className="h-12 w-12">
-                          <AvatarFallback className="bg-secondary text-secondary-foreground font-semibold">
-                            {master.avatar}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <h4 className="font-semibold">{master.masterName}</h4>
-                          <p className="text-xs text-muted-foreground">Маникюр, педикюр</p>
-                        </div>
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          onClick={() => handleBooking(master.masterName, master.service, master.price)}
-                        >
-                          <Icon name="Calendar" size={18} />
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
+                  <Card className="hover:shadow-md transition-all">
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback className="bg-secondary text-secondary-foreground font-semibold">
+                          АС
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <h4 className="font-semibold">Анна Смирнова</h4>
+                        <p className="text-xs text-muted-foreground">Наращивание ногтей</p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => handleBooking(2, 'Анна Смирнова', 3, 'Наращивание ногтей', 3000)}
+                      >
+                        <Icon name="Calendar" size={18} />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  <Card className="hover:shadow-md transition-all">
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback className="bg-secondary text-secondary-foreground font-semibold">
+                          МИ
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <h4 className="font-semibold">Мария Иванова</h4>
+                        <p className="text-xs text-muted-foreground">Spa-маникюр</p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => handleBooking(3, 'Мария Иванова', 5, 'Spa-маникюр', 2500)}
+                      >
+                        <Icon name="Calendar" size={18} />
+                      </Button>
+                    </CardContent>
+                  </Card>
                 </div>
               </CardContent>
             </Card>
@@ -381,6 +455,10 @@ const Index = () => {
           onConfirm={handleBookingConfirm}
           onCancel={handleBookingCancel}
         />
+      )}
+      
+      {showProfileModal && (
+        <ProfileModal onClose={() => setShowProfileModal(false)} />
       )}
     </div>
   );

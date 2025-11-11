@@ -1,0 +1,44 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": "",
+      "bodyMatcher": "exact"
+    },
+    {
+      "name": "Get available slots for master",
+      "method": "GET",
+      "path": "/?action=slots&master_id=1&date=2025-11-11",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "slots": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Create new booking",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "telegramUser": {
+          "id": 123456789,
+          "first_name": "Test"
+        },
+        "masterId": 1,
+        "serviceId": 1,
+        "date": "2025-11-11",
+        "time": "10:00",
+        "duration": 60
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "bookingId": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

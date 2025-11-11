@@ -1,0 +1,45 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": "",
+      "bodyMatcher": "exact"
+    },
+    {
+      "name": "Get user profile",
+      "method": "GET",
+      "path": "/",
+      "headers": {
+        "X-Telegram-User": "{\"id\": 123456789, \"first_name\": \"Test\", \"username\": \"testuser\"}"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "id": "number",
+        "firstName": "string",
+        "role": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Update user profile",
+      "method": "PUT",
+      "path": "/",
+      "headers": {
+        "X-Telegram-User": "{\"id\": 123456789, \"first_name\": \"Test\"}"
+      },
+      "body": {
+        "firstName": "Updated Name",
+        "lastName": "Updated Last",
+        "phone": "+79991234567"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

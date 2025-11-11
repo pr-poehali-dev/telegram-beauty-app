@@ -1,0 +1,42 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": "",
+      "bodyMatcher": "exact"
+    },
+    {
+      "name": "Get notifications with valid user",
+      "method": "GET",
+      "path": "/",
+      "headers": {
+        "X-Telegram-User": "{\"id\": 123456789, \"first_name\": \"Test\"}"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "notifications": "array",
+        "unreadCount": "number"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Mark all as read",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-Telegram-User": "{\"id\": 123456789, \"first_name\": \"Test\"}"
+      },
+      "body": {
+        "action": "mark_all_read"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
